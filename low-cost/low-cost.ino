@@ -4,12 +4,13 @@
 #include <WiFi.h>
 #include "ThingSpeak.h"
 
-
-const char* ssid = "H's Room";
-const char* password = "henry123";
+//username and password for wifi
+const char* ssid = "Test";
+const char* password = "Testing123";
 
 WiFiClient  client;
 
+// API key
 unsigned long myChannelNumber = 1;
 const char * myWriteAPIKey = "Y04OUFYG2UF6IFLU";
 
@@ -21,17 +22,16 @@ unsigned long timerDelay = 30000;
 Adafruit_SGP30 sgp;
 Adafruit_AHTX0 aht;
 
-/* return absolute humidity [mg/m^3] with approximation formula
-* @param temperature [°C]
-* @param humidity [%RH]
-*/
+
 uint32_t getAbsoluteHumidity(float temperature, float humidity) {
-    // approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
     const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
     const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
     return absoluteHumidityScaled;
 }
 
+
+
+//sets up wifi, thingspeak server, aht sensor, sgp sensor
 void setup() {
   Serial.begin(115200);
   while (!Serial) { delay(10); } // Wait for serial console to open!
@@ -69,23 +69,20 @@ void setup() {
   //sgp.setIAQBaseline(0x8E68, 0x8F41);  // Will vary for each sensor!
 
  Serial.begin(115200);
-  Serial.println("Adafruit AHT10/AHT20 demo!");
+  Serial.println("Adafruit AHT20");
 
   if (! aht.begin()) {
     Serial.println("Could not find AHT? Check wiring");
     while (1) delay(10);
   }
-  Serial.println("AHT10 or AHT20 found");
+  Serial.println("AHT20 found");
 
 
 }
 
 int counter = 0;
 void loop() {
-  // If you have a temperature / humidity sensor, you can set the absolute humidity to enable the humditiy compensation for the air quality signals
-  //float temperature = 22.1; // [°C]
-  //float humidity = 45.2; // [%RH]
-  //sgp.setHumidity(getAbsoluteHumidity(temperature, humidity));
+  //gets all readouts fron sensors then pushes the temp humidity and eco2 data to thingspeak server using api
 
   if (! sgp.IAQmeasure()) {
     Serial.println("Measurement failed");
@@ -101,7 +98,6 @@ void loop() {
   Serial.print("Raw H2 "); Serial.print(sgp.rawH2); Serial.print(" \t");
   Serial.print("Raw Ethanol "); Serial.print(sgp.rawEthanol); Serial.println("");
  
-  delay(100);
 
 
   sensors_event_t humidity, temp;
@@ -109,6 +105,7 @@ void loop() {
   Serial.print("Temperature: "); Serial.print(temp.temperature); Serial.println(" degrees C");
   Serial.print("Humidity: "); Serial.print(humidity.relative_humidity); Serial.println("% rH");
 
+//30 sec delay on loop data only posted every 30 sec.
   delay(30000);
 
   counter++;
@@ -127,12 +124,10 @@ void loop() {
 
     // set the fields with the values
     ThingSpeak.setField(1, temp.temperature);
-    //ThingSpeak.setField(1, temperatureF);
     ThingSpeak.setField(2, humidity.relative_humidity);
     ThingSpeak.setField(3, sgp.eCO2);
     
-    // Write to ThingSpeak. There are up to 8 fields in a channel, allowing you to store up to 8 different
-    // pieces of information in a channel.  Here, we write to field 1.
+    // Write to ThingSpeak. There are up to 8 fields in a channel, allowing you to store up to 8 different pieces of information in a channel.
     int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
 
     if(x == 200){
